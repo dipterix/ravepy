@@ -22,15 +22,76 @@ env_path <- function(){
   file.path(install_root(), CONDAENV_NAME)
 }
 
+mat_pyver <- function(mat_ver){
+  list(
+    '2014b' = c('2.7', '3.3'),
+    '2015a' = c('2.7', '3.3', '3.4'),
+    '2015b' = c('2.7', '3.3', '3.4'),
+    '2016a' = c('2.7', '3.3', '3.4'),
+    '2016b' = c('2.7', '3.3', '3.4', '3.5'),
+    '2017a' = c('2.7', '3.4', '3.5'),
+    '2017b' = c('2.7', '3.4', '3.5', '3.6'),
+    '2018a' = c('2.7', '3.5', '3.6'),
+    '2018b' = c('2.7', '3.5', '3.6'),
+    '2019a' = c('2.7', '3.5', '3.6', '3.7'),
+    '2019b' = c('2.7', '3.6', '3.7'),
+    '2020a' = c('2.7', '3.6', '3.7'),
+    '2020b' = c('2.7', '3.6', '3.7', '3.8')
+  )[[mat_ver]]
+}
 
 #' @export
-configure_matlab <- function(matlab){
+configure_matlab <- function(matlab, python_ver = 'auto'){
+
+  # TODO: must configure python first
+
   # matlab <- '/Applications/MATLAB_R2020b.app'
   matlab <- matlab[[1]]
   mat_engine_path <- file.path(matlab, "extern/engines/python/")
+  py_path <- reticulate::conda_python(env_path())
+
+  if(python_ver == 'auto'){
+    # check matlab version
+
+    try({
+      s <- readLines(file.path(mat_engine_path, 'setup.py'))
+      s <- stringr::str_trim(s)
+      s <- s[startsWith(s, "version")]
+      if(length(s)){
+
+        s <- s[[length(s)]]
+        s <- stringr::str_to_lower(s)
+        mat_ver <- stringr::str_extract(s, "20[0-9]{2}[abcdefgh]")
+        compatible_ver <- mat_pyver(mat_ver)
+
+
+        if(length(compatible_ver)){
+          # check installed python version
+          ver <- system2(py_path, "-V", stdout = TRUE, stderr = TRUE)
+          ver <- stringr::str_match(ver, "([23]\\.[0-9]+)\\.[0-9]+")
+          ver <- ver[[2]]
+
+          if(!ver %in% compatible_ver) {
+            python_ver <- compatible_ver[[length(compatible_ver)]]
+            message(sprintf("Current python version is `%s`, but matlab engine requires python version to be one of the followings: %s. Re-install python %s", ver, paste(compatible_ver, collapse = ', '), python_ver))
+          }
+        }
+
+
+      }
+
+    })
+
+  }
+
+  if(python_ver != 'auto'){
+    add_packages(NULL, python_ver = python_ver)
+  }
+
+
   setwd2(mat_engine_path)
 
-  py_path <- reticulate::conda_python(env_path())
+
   build_dir <- file.path(install_root(), "matlab-engine-build")
   dir.create(build_dir)
   build_dir <- normalizePath(build_dir)
@@ -43,7 +104,7 @@ configure_matlab <- function(matlab){
 }
 
 #' @export
-configure <- function(python_ver = "3.8",
+configure <- function(python_ver = "auto",
                       packages = NULL,
                       matlab = NULL,
                       update = TRUE, force = FALSE){
@@ -65,14 +126,17 @@ configure <- function(python_ver = "3.8",
     reticulate::conda_create(env_path())
   }
 
-  add_packages(packages, python_ver = python_ver)
-
   # check matlab
   if(length(matlab)){
-    configure_matlab(matlab)
+    configure_matlab(matlab, python_ver = python_ver)
   }
 
-
+  if(!length(matlab) || length(packages)) {
+    if(python_ver == 'auto'){
+      python_ver <- NULL
+    }
+    add_packages(packages, python_ver)
+  }
 }
 
 #' @export
