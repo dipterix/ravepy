@@ -11,5 +11,6 @@ Encoding: UTF-8
 LazyData: true
 Imports: 
     reticulate (>= 1.18),
-    rappdirs (>= 0.3.1)
+    rappdirs (>= 0.3.1),
+    dipsaus (>= 0.1.5)
 RoxygenNote: 7.1.1

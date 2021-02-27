@@ -3,5 +3,4 @@
   pkg <- getNamespace(pkgname)
 
   options("ravepy.matlab_engine" = dipsaus::fastqueue2())
-
 }

@@ -125,7 +125,7 @@ matlab_engine <- function(){
 
 
 #' @export
-call_matlab <- function(fun, ..., .options = getOption("ravepy.matlab_opt", "-nodesktop -nojvm")){
+call_matlab <- function(fun, ..., .options = getOption("ravepy.matlab_opt", "-nodesktop -nojvm"), .debug = getOption("ravepy.debug", FALSE)){
 
   matlab <- matlab_engine()
   if(is.null(matlab)){
@@ -140,31 +140,78 @@ call_matlab <- function(fun, ..., .options = getOption("ravepy.matlab_opt", "-no
   }
 
   suc <- FALSE
+
+  if(.debug){
+    message("Existing engine: ", existing_engines$size())
+  }
   if(existing_engines$size()){
-    engine <- existing_engines$remove()
-    suc <- tryCatch({
-      force(engine$workspace)
-      TRUE
-    }, error = function(e){
-      # engine is invalid, quit
-      engine$quit()
-      FALSE
-    })
+    same_opt <- vapply(as.list(existing_engines), function(item){
+      if(!is.environment(item)){ return(FALSE) }
+      isTRUE(item$options == .options)
+    }, FALSE)
+
+    if(any(same_opt)){
+      idx <- which(same_opt)[[1]]
+      if(idx > 1){
+        burned <- existing_engines$mremove(n = idx - 1, missing = NA)
+        for(item in burned){
+          if(is.environment(item)){
+            existing_engines$add(item)
+          }
+        }
+      }
+      item <- existing_engines$remove()
+      suc <- tryCatch({
+        force(item$engine$workspace)
+        TRUE
+      }, error = function(e){
+        # engine is invalid, quit
+        item$engine$quit()
+        FALSE
+      })
+    }
   }
   if(!suc){
+    if(.debug){
+      message("Creating new matlab engine with options: ", .options)
+    }
+    item <- new.env(parent = emptyenv())
     engine <- matlab$start_matlab(.options)
+    item$engine <- engine
+    item$options <- .options
+    reg.finalizer(item, function(item){
+
+      if(getOption("ravepy.debug", FALSE)){
+        message("Removing a matlab instance.")
+      }
+      try({item$engine$quit()}, silent = TRUE)
+    }, onexit = TRUE)
+  } else {
+    if(.debug){
+      message("Using existing idle engine")
+    }
   }
   on.exit({
     tryCatch({
-      force(engine$workspace)
-      existing_engines$add(engine)
+      force(item$engine$workspace)
+
+      if(.debug){
+        message("Engine is still alive, keep it for future use")
+      }
+      existing_engines$add(item)
     }, error = function(e){
-      # engine is invalid, quit
-      engine$quit()
+      if(.debug) {
+        message("Engine is not alive, removing from the list.")
+      }
+      item$engine$quit()
     })
   })
-
+  if(.debug) {
+    message("Executing matlab call")
+  }
+  engine <- item$engine
   res <- engine[[fun]](...)
+
   return(res)
 }
 
