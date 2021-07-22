@@ -103,6 +103,8 @@ configure_matlab <- function(matlab, python_ver = 'auto'){
   ), wait = TRUE)
 }
 
+
+
 #' @export
 configure <- function(python_ver = "auto",
                       packages = NULL,
@@ -118,7 +120,8 @@ configure <- function(python_ver = "auto",
   # TODO: check if conda bin exists
   path <- conda_path()
   if(force || update || !dir.exists(path)){
-    reticulate::install_miniconda(path = path, update = update, force = force)
+    # reticulate::install_miniconda(path = path, update = update, force = force)
+    install_conda(path = path, update = update, force = force)
   }
 
   # create virtual env
@@ -137,6 +140,16 @@ configure <- function(python_ver = "auto",
     }
     add_packages(packages, python_ver)
   }
+}
+
+#' @export
+remove_conda <- function(){
+  conda_path <- conda_path()
+  if(dir.exists(conda_path)){
+    unlink(conda_path, recursive = TRUE, force = TRUE)
+    return(invisible(TRUE))
+  }
+  return(invisible(FALSE))
 }
 
 #' @export
@@ -199,7 +212,7 @@ call_matlab <- function(fun, ..., .options = getOption("ravepy.matlab_opt", "-no
 
   existing_engines <- getOption("ravepy.matlab_engine", NULL)
   if(is.null(existing_engines)){
-    existing_engines <- dipsaus::fastqueue2()
+    existing_engines <- fastqueue2()
     options("ravepy.matlab_engine" = existing_engines)
   }
 
