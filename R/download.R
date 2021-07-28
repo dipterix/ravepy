@@ -10,15 +10,16 @@ miniconda_installer_url <- function (version = "3") {
   } else {
     arch <- ifelse(.Machine$sizeof.pointer == 8, "x86_64", "x86")
   }
+  ns <- asNamespace('reticulate')
   version <- as.character(version)
-  name <- if (is_windows())
+  name <- if (ns$is_windows())
     sprintf("Miniconda%s-latest-Windows-%s.exe", version,
             arch)
-  else if (is_osx())
+  else if (ns$is_osx())
     sprintf("Miniconda%s-latest-MacOSX-%s.sh", version, arch)
-  else if (is_linux())
+  else if (ns$is_linux())
     sprintf("Miniconda%s-latest-Linux-%s.sh", version, arch)
-  else stopf("unsupported platform %s", shQuote(Sys.info()[["sysname"]]))
+  else ns$stopf("unsupported platform %s", shQuote(Sys.info()[["sysname"]]))
   file.path(base, name)
 }
 
